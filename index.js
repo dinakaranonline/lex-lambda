@@ -1,3 +1,7 @@
+const dynamodb = require('aws-sdk/clients/dynamodb');
+const docClient = new dynamodb.DocumentClient();
+
+
 const dispatcher = async (event) => {
     let response = {
         sessionAttributes: event.sessionAttributes,
@@ -13,15 +17,27 @@ const dispatcher = async (event) => {
     console.log("source###"+event.currentIntent.slots.source);
     console.log("destination###"+event.currentIntent.slots.destination);
     switch(event.currentIntent.name) {
-        case "AboutIntent":
-            response.dialogAction.fulfillmentState = "Fulfilled";
-            response.dialogAction.message.content = "Created by Nic Raboy at HERE";
-            break;
         case "CalculateDistance":
             var source1 = event.currentIntent.slots.source;
             var destination1 = event.currentIntent.slots.destination;
+           
+             var params = {
+             TableName : "distance_graph",
+             Key: { 
+                 sourceCity: source1, 
+                 targetCity: destination1
+             },
+                };
+            const data = await docClient.get(params).promise();
+            const item = data.Item;
+            //Error handling
+            if(item!=null){
+            console.log("dynamodb fetch"+JSON.stringify(item));
+            console.log("distance ###"+item.distance);
+            response.dialogAction.message.content = item.distance;
+            }
+            else response.dialogAction.message.content = "Details not available. Please provide valid source and destination";
             response.dialogAction.fulfillmentState = "Fulfilled";
-            response.dialogAction.message.content = "Distance between "+source1+" and "+destination1+" is " + "500 miles";
             break;    
         default:
             response.dialogAction.fulfillmentState = "Failed";
@@ -32,6 +48,8 @@ const dispatcher = async (event) => {
     console.log("content###"+response.dialogAction.message.content);
     return response;
 }
+
+
 
 exports.handler = (event, context) => {
     return dispatcher(event);
